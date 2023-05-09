@@ -1,8 +1,9 @@
-package main
+package core
 
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"sync"
@@ -10,7 +11,7 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 )
 
-type info struct {
+type Info struct {
 	url          string
 	location     string
 	length       int64
@@ -25,9 +26,9 @@ type piece struct {
 	done  bool
 }
 
-func make_info(url string, location string, pieces int) info {
+func Make_Info(url string, location string, pieces int) Info {
 	len := get_length(url)
-	return info{
+	return Info{
 		url:          url,
 		location:     location,
 		length:       len,
@@ -44,7 +45,7 @@ func get_length(url string) int64 {
 	return res.ContentLength
 }
 
-func make_pieces(inf info) []piece {
+func make_pieces(inf Info) []piece {
 	pieces := make([]piece, inf.pieces)
 	for i := 0; i < inf.pieces; i++ {
 		if i == 0 {
@@ -63,7 +64,7 @@ func make_pieces(inf info) []piece {
 	return pieces
 }
 
-func donwload_piece(wg *sync.WaitGroup, p *piece, inf info) {
+func donwload_piece(wg *sync.WaitGroup, p *piece, inf Info) {
 	defer wg.Done()
 	// create file in tmp inside current directory
 	// get current directory
@@ -103,24 +104,27 @@ func donwload_piece(wg *sync.WaitGroup, p *piece, inf info) {
 
 }
 
-func merge(inf info, pieces []piece) {
+func merge(inf Info, pieces []piece) error {
 	f, err := os.Create(inf.location)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
+		return err
 	}
 	defer f.Close()
 	for i := 0; i < inf.pieces; i++ {
 		addr := "./tmp/dat" + fmt.Sprint(i)
 		p, err := os.Open(addr)
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
+			return err
 		}
 		defer p.Close()
 		io.Copy(f, p)
 	}
+	return nil
 }
 
-func Download(inf info) {
+func Download(inf Info) error {
 	pieces := make_pieces(inf)
 	var wg sync.WaitGroup
 	for i := 0; i < inf.pieces; i++ {
@@ -131,6 +135,11 @@ func Download(inf info) {
 	wg.Wait()
 
 	fmt.Println("Downloaded all pieces")
-	merge(inf, pieces)
+	err := merge(inf, pieces)
+	os.RemoveAll("./tmp")
+	if err != nil {
+		return err
+	}
 	fmt.Println("Downloaded")
+	return nil
 }
