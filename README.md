@@ -2,4 +2,4 @@
 
 A parallel downloader written in golang
 
-usage: fetch <url> <filename>
+```usage: fetch <url> <filename>```
