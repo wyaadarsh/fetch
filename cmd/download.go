@@ -18,36 +18,37 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/wyaadarsh/fetch/core"
 )
 
-var cfgFile string
-
-var rootCmd = &cobra.Command{
-	Use:   "fetch <URL> <filename>",
-	Short: "A Fast Cli to download files from the internet",
-	Long: `fetch is a CLI tool to download files from the internet.
-It is a concurrent downloader that downloads files in parallel.
-It is written in Go.`,
+var downloadCmd = &cobra.Command{
+	Use:   "download <URL> <filename>",
+	Short: "Download a file from the internet",
+	Long: `Download a file from the internet.
+	Make Sure you have twice the space of the file to be downloaded in your disk.
+	For example, if you are downloading a file of size 1GB, make sure you have 2GB of free space in your disk.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) == 0 {
+		if len(args) < 2 {
 			cmd.Help()
 			os.Exit(0)
 		}
-		start_time := time.Now()
-		info := core.Make_Info(args[0], "$HOME/Downloads"+"/"+args[1], 10)
-		err := core.Download(info)
-		if err != nil {
-			fmt.Printf("Encountered error: %v\n", err)
-		} else {
-			fmt.Printf("Download completed successfully in %f seconds!", time.Since(start_time).Seconds())
-		}
-	},
-}
 
-func Execute() {
-	cobra.CheckErr(rootCmd.Execute())
+		core.CreateSqliteDB()
+		db := core.Get_DB()
+		defer db.Close()
+		var hist *core.History = new(core.History)
+
+		location, err := cmd.Flags().GetString("path")
+		if err != nil || location == "" {
+			location = "$HOME/Downloads"
+		}
+		chunks, err := cmd.Flags().GetInt("threads")
+		if err != nil || chunks == 0 {
+			fmt.Println("Defaulting to 10 threads")
+			chunks = 10
+		}
+
+	},
 }
